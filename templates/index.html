@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Check</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background: url('{{ url_for("static", filename="bggimage.jpg") }}') no-repeat center center fixed;
+            background-size: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Safety Check</h1>
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" alt="Video Feed"> 
+        </div>
+    </div>
+</body>
+</html>
