@@ -7,27 +7,35 @@ import numpy as np
 from pyzbar.pyzbar import decode, ZBarSymbol
 
 def calculate_intersection_area(boxA, boxB):
+    # Determine the coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
     yB = min(boxA[3], boxB[3])
+
+    # Compute the area of intersection rectangle
     intersection_area = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+
     return intersection_area
 
 def load_known_faces(known_faces_dir):
     known_face_encodings = []
     known_face_names = []
+
+    # Load all images from the known_faces directory
     for filename in os.listdir(known_faces_dir):
         if filename.endswith(".jpg") or filename.endswith(".png"):
             image_path = os.path.join(known_faces_dir, filename)
             known_image = face_recognition.load_image_file(image_path)
             known_face_encoding = face_recognition.face_encodings(known_image)[0]
             known_face_encodings.append(known_face_encoding)
-            known_face_names.append(os.path.splitext(filename)[0])
+            known_face_names.append(os.path.splitext(filename)[0])  # Use the filename without extension as the name
+
     return known_face_encodings, known_face_names
 
 def detect_objects(img, model, known_face_encodings, known_face_names):
-    classNames = ['Hardhat', 'Mask', 'NO-Hardhat', 'NO-Mask', 'NO-Safety Vest', 'Person', 'Safety Cone', 'Safety Vest', 'machinery', 'vehicle']
+    classNames = ['Hardhat', 'Mask', 'NO-Hardhat', 'NO-Mask', 'NO-Safety Vest', 'Person', 'Safety Cone', 'Safety Vest',
+                  'machinery', 'vehicle']
     myColor = (0, 0, 255)
 
     results = model(img, stream=True)
@@ -36,17 +44,22 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
     for r in results:
         boxes = r.boxes
         for box in boxes:
+            # Bounding Box
             x1, y1, x2, y2 = box.xyxy[0]
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
             w, h = x2 - x1, y2 - y1
 
+            # Confidence
             conf = math.ceil((box.conf[0] * 100)) / 100
+            # Class Name
             cls = int(box.cls[0])
             currentClass = classNames[cls]
 
+            # Ignore Mask and Safety Vest detections
             if currentClass in ['Mask', 'NO-Mask', 'Safety Vest', 'NO-Safety Vest']:
                 continue
 
+            # Append the bounding box to the respective list without drawing them
             if conf > 0.5 and (currentClass == 'Hardhat' or currentClass == 'NO-Hardhat' or currentClass == 'Person'):
                 if currentClass == 'NO-Hardhat':
                     myColor = (0, 0, 255)
@@ -55,14 +68,17 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
                 else:
                     myColor = (255, 0, 0)
 
+                # Append the bounding box to the respective list
                 if currentClass == 'Hardhat' or currentClass == 'NO-Hardhat':
                     hardhat_boxes.append((x1, y1, x2, y2, currentClass))
                 if currentClass == 'Person':
                     person_boxes.append((x1, y1, x2, y2))
 
+    # Face recognition and drawing rectangles and text for recognized faces
     face_locations = face_recognition.face_locations(img)
     face_encodings = face_recognition.face_encodings(img, face_locations)
 
+    # QR code detection and processing with error handling
     barcode_data = None
     try:
         for barcode in decode(img, symbols=[ZBarSymbol.QRCODE]):
@@ -83,11 +99,12 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
             first_match_index = matches.index(True)
             name = known_face_names[first_match_index]
 
-        face_box = (left, top, right, bottom)
+        face_box = (left, top, right, bottom)  # Define the face bounding box
 
-        face_color = (0, 0, 255)
+        face_color = (0, 0, 255)  # Default color for unknown face (red)
         status_text = " "
 
+        # Check overlap with Person and Hardhat/No-Hardhat boxes
         for person_box in person_boxes:
             intersection_area_person = calculate_intersection_area(face_box, person_box)
             if intersection_area_person > 0.1:
@@ -98,25 +115,26 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
                         if name != "Unknown":
                             if hardhat_box[4] == "Hardhat":
                                 if barcode_data and name == barcode_data:
-                                    face_color = (0, 255, 0)
+                                    face_color = (0, 255, 0)  # Green
                                     status_text = "All Good!"
                                 else:
-                                    face_color = (0, 165, 255)
+                                    face_color = (0, 165, 255)  # Orange
                                     status_text = "Wear Your Own Helmet!!"
                             else:
-                                face_color = (0, 255, 255)
+                                face_color = (0, 255, 255)  # Yellow
                                 status_text = "Please Wear Your Helmet"
                         else:
                             if hardhat_box[4] == "Hardhat":
                                 if barcode_data:
-                                    face_color = (255, 105, 180)
+                                    face_color = (255, 105, 180)  # Pink
                                     status_text = "Guest User Alert!"
                                 else:
-                                    face_color = (0, 0, 255)
+                                    face_color = (0, 0, 255)  # Red
                                     status_text = "Unknown User Alert!!"
                         break
 
-        cv2.rectangle(img, face_box, face_color, 2)
+        # Draw rectangle and text for face box only
+        cv2.rectangle(img, (left, top), (right, bottom), face_color, 2)
         cv2.putText(img, name, (left, top - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, face_color, 2)
         cv2.putText(img, status_text, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, face_color, 2)
 
