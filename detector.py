@@ -5,15 +5,16 @@ import os
 from ultralytics import YOLO
 import numpy as np
 from pyzbar.pyzbar import decode, ZBarSymbol
+from database import log_status  # Import the log_status function
 
 def calculate_intersection_area(boxA, boxB):
     # Determine the coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
+    yB = min(boxB[3], boxB[3])
 
-    # Compute the area of intersection rectangle
+    # Compute the area of the intersection rectangle
     intersection_area = max(0, xB - xA + 1) * max(0, yB - yA + 1)
 
     return intersection_area
@@ -116,26 +117,29 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
                             if hardhat_box[4] == "Hardhat":
                                 if barcode_data and name == barcode_data:
                                     face_color = (0, 255, 0)  # Green
-                                    status_text = "All Good!"
+                                    status_text = f"{name}, All Good!"
                                 else:
                                     face_color = (0, 165, 255)  # Orange
-                                    status_text = "Wear Your Own Helmet!!"
+                                    status_text = f"{name}, Wear Your Own Helmet!!"
                             else:
                                 face_color = (0, 255, 255)  # Yellow
-                                status_text = "Please Wear Your Helmet"
+                                status_text = f"{name}, Please Wear Your Helmet"
                         else:
                             if hardhat_box[4] == "Hardhat":
                                 if barcode_data:
                                     face_color = (255, 105, 180)  # Pink
-                                    status_text = "Guest User Alert!"
+                                    status_text = f"{name}, Guest User Alert!"
                                 else:
                                     face_color = (0, 0, 255)  # Red
-                                    status_text = "Unknown User Alert!!"
+                                    status_text = f"{name}, Unknown User Alert!!"
                         break
+
+        # Log the status_text to the database for each face detected
+        log_status(status_text)
 
         # Draw rectangle and text for face box only
         cv2.rectangle(img, (left, top), (right, bottom), face_color, 2)
-        cv2.putText(img, name, (left, top - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, face_color, 2)
+       #cv2.putText(img, name, (left, top - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, face_color, 2)
         cv2.putText(img, status_text, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, face_color, 2)
 
     return img
