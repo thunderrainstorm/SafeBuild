@@ -129,7 +129,8 @@ def detect_objects(img, model, known_face_encodings, known_face_names):
                                 if barcode_data:
                                     face_color = (255, 105, 180)  # Pink
                                     status_text = f"{name}, Guest User Alert!"
-                                else:
+                            else:
+                                if not barcode_data:    
                                     face_color = (0, 0, 255)  # Red
                                     status_text = f"{name}, Unknown User Alert!!"
                         break
