@@ -1,18 +1,43 @@
 from flask import Flask, render_template, Response, jsonify
 import cv2
+import logging
+import time
 from detector import load_known_faces, detect_objects
 from ultralytics import YOLO
 from database import initialize_db, clear_status_log, fetch_status_logs  # Import database functions
 import torch  # Import PyTorch
 
+
+# Set up logging
+logging.basicConfig(filename='camera_debug.log', level=logging.DEBUG)
+
 app = Flask(__name__)
 
+# Function to find the first available camera index
+def get_camera_index():
+    index = 0
+    while True:
+        cap = cv2.VideoCapture(index)
+        if cap.read()[0]:
+            cap.release()
+            logging.debug(f"Camera found at index: {index}")
+            return index
+        cap.release()
+        index += 1
+    logging.error("No camera found.")
+    return -1
+
+# Get the camera index
+camera_index = get_camera_index()
+if camera_index == -1:
+    raise RuntimeError("No camera available.")
+
 # Initialize video capture
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(camera_index)
 if not cap.isOpened():
     raise IOError("Cannot open webcam")
-cap.set(3, 640)
-cap.set(4, 480)
+cap.set(3, 1280)
+cap.set(4, 720)
 
 # Load the model and known faces
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # Set device to GPU if available
@@ -60,4 +85,6 @@ def status_logs():
     return jsonify(logs)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Ensure some delay for camera initialization
+    time.sleep(2)
+    app.run(host="0.0.0.0", port=80, debug=False)
